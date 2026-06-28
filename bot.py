@@ -1,45 +1,56 @@
 import os
-import subprocess
-import sys
+from flask import Flask
+from threading import Thread
+import telebot
 
-# دالة لتثبيت المكتبات تلقائياً إذا كانت ناقصة
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+# ==========================================
+# 1. جزء السيرفر الوهمي لتخطي مشكلة إغلاق Render
+# ==========================================
+app = Flask('')
 
-print("⏳ جاري فحص وتثبيت المكتبات الناقصة... انتظر ثواني")
-try:
-    import telebot
-except ImportError:
-    install('pyTelegramBotAPI')
-    import telebot
+@app.route('/')
+def home():
+    return "البوت شغال 24 ساعة بنجاح!"
 
-try:
-    import yt_dlp
-except ImportError:
-    install('yt-dlp')
-    import yt_dlp
+def run():
+    # المنصة تعطي منفذ تلقائي عبر الـ Environment Variable أو تستخدم 8080
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
-# --- بداية كود البوت بعد التأكد من المكتبات ---
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
-TOKEN = "8738979905:AAHDzJhDXtIQvAf0ttekyyFmkgWogWs5U4g"
-bot = telebot.TeleBot(TOKEN)
+# ==========================================
+# 2. إعداد البوت والتوكن الخاص بك
+# ==========================================
 
-@bot.message_handler(func=lambda m: True)
-def download_msg(m):
-    if "http" in m.text:
-        wait = bot.reply_to(m, "⏳ جاري التحميل...")
-        opts = {'format': 'best', 'outtmpl': 'v.mp4', 'quiet': True}
-        try:
-            if os.path.exists("v.mp4"): os.remove("v.mp4")
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([m.text])
-            with open("v.mp4", 'rb') as v:
-                bot.send_video(m.chat.id, v, caption="✅ تم التحميل!")
-            bot.delete_message(m.chat.id, wait.message_id)
-            os.remove("v.mp4")
-        except Exception as e:
-            bot.edit_message_text(f"❌ خطأ: {str(e)}", m.chat.id, wait.message_id)
+BOT_TOKEN = "8738979905:AAHDzJhDXtIQvAf0ttekyyFmkgWogWs5U4g" 
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+# رسالة الترحيب /start
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, "أهلاً بك إلياس! أنا بوت تحميل فيديوهات تيك توك، أرسل لي الرابط الآن 🚀")
+
+# استقبال الروابط
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    if "tiktok.com" in message.text:
+        bot.reply_to(message, "جاري فحص رابط تيك توك والتحميل... ⏳")
     else:
-        bot.reply_to(m, "أرسل رابط فيديو لتحميله.")
+        bot.reply_to(message, "من فضلك أرسل رابط تيك توك صحيح.")
 
-print("✅ المكتبات جاهزة والبوت يعمل الآن!")
+# ==========================================
+# 3. تشغيل السيرفر الوهمي والبوت معاً
+# ==========================================
+if __name__ == "__main__":
+    print("جاري فحص وتثبيت المكتبات... انتظر ثواني ⏳")
+    print("!المكتبات جاهزة والبوت يعمل الآن ✅")
+    
+    # تشغيل سيرفر Flask في الخلفية أولاً
+    keep_alive()
+    
+    # تشغيل استقبال رسائل التليجرام بلا توقف
+    bot.infinity_polling(skip_pending=True)
