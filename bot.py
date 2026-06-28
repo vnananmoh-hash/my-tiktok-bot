@@ -1,36 +1,35 @@
+import telebot
+import yt_dlp
 import os
 from flask import Flask
 from threading import Thread
-import telebot
 
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is running!"
+def home(): return "Bot is running!"
+def run(): app.run(host='0.0.0.0', port=8080)
+Thread(target=run).start()
 
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# --- هنا تحط التوكن تاعك ---
-BOT_TOKEN = "8738979905:AAHDzJhDXtIQvAf0ttekyyFmkgWogWs5U4g" 
-# ---------------------------
-
+BOT_TOKEN = "8738979905:AAHDzJhDXtIQvAf0ttekyyFmkgWogWs5U4g"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.reply_to(message, "Welcome! I am ready.")
+def start(message):
+    bot.reply_to(message, "Send me a link to download.")
 
-@bot.message_handler(func=lambda message: True)
-def echo_all(message):
-    if "tiktok.com" in message.text:
-        bot.reply_to(message, "Processing your request...")
+@bot.message_handler(func=lambda message: message.text.startswith("http"))
+def download_video(message):
+    url = message.text
+    msg = bot.reply_to(message, "Processing...")
+    try:
+        ydl_opts = {'outtmpl': 'video.mp4', 'format': 'best'}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        with open('video.mp4', 'rb') as video:
+            bot.send_video(message.chat.id, video)
+        bot.delete_message(message.chat.id, msg.message_id)
+        os.remove('video.mp4')
+    except Exception as e:
+        bot.reply_to(message, f"Error: {str(e)}")
 
-if __name__ == "__main__":
-    keep_alive()
-    bot.infinity_polling()
+bot.infinity_polling()
