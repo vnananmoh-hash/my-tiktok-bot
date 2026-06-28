@@ -43,4 +43,3 @@ def download_msg(m):
         bot.reply_to(m, "أرسل رابط فيديو لتحميله.")
 
 print("✅ المكتبات جاهزة والبوت يعمل الآن!")
-bot.polling(none_stop=True)
